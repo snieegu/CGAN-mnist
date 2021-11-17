@@ -30,13 +30,15 @@ dataroot = "C:/Users/maxoo/Downloads/mnist_jpg"
 # transformation = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
 
 dataset = dset.ImageFolder(root=dataroot, transform=transforms.Compose([
-    transforms.Resize(image_size), transforms.CenterCrop(image_size), transforms.ToTensor(),
+    transforms.Grayscale(1), transforms.Resize(image_size), transforms.CenterCrop(image_size), transforms.ToTensor(),
     transforms.Normalize((0.5,), (0.5,))]))
 
 dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 print(device)
+
 
 # Plot some training images
 # real_batch = next(iter(dataloader))
@@ -53,14 +55,30 @@ class Generator(nn.Module):
         self.main = nn.Sequential(
 
             nn.Conv2d(laten_dim, 256, kernel_size=(2, 2), stride=(1, 1), bias=False),
-            nn.LeakyReLU(0.2),
-            nn.Dropout(0.3),
+            nn.BatchNorm2d(256),
+            nn.ReLU(True),
+            # nn.LeakyReLU(0.2),
+            # nn.Dropout(0.3),
 
-            nn.Conv2d(256, 512, kernel_size=(2, 2), stride=(1, 1), bias=False),
-            nn.LeakyReLU(0.2),
-            nn.Dropout(0.3),
+            nn.Conv2d(256, 128, kernel_size=(2, 2), stride=(1, 1), bias=False),
+            nn.BatchNorm2d(128),
+            nn.ReLU(True),
+            # nn.LeakyReLU(0.2),
+            # nn.Dropout(0.3),
 
-            nn.Conv2d(512, 784, kernel_size=(2, 2), stride=(1, 1), bias=False),
+            nn.Conv2d(128, 64, kernel_size=(2, 2), stride=(1, 1), bias=False),
+            nn.BatchNorm2d(64),
+            nn.ReLU(True),
+            # nn.LeakyReLU(0.2),
+            # nn.Dropout(0.3),
+
+            nn.Conv2d(64, 28, kernel_size=(2, 2), stride=(1, 1), bias=False),
+            nn.BatchNorm2d(28),
+            nn.ReLU(True),
+            # nn.LeakyReLU(0.2),
+            # nn.Dropout(0.3),
+
+            nn.Conv2d(28, 1, kernel_size=(2, 2), stride=(1, 1), bias=False),
             # nn.Linear(784, 1),
             nn.Tanh()
         )
@@ -73,27 +91,31 @@ class Generator(nn.Module):
 class Discriminator(nn.Module):
     def __init__(self):
         super(Discriminator, self).__init__()
-        self.real_dim = real_dim
         self.main = nn.Sequential(
 
-            nn.ConvTranspose2d(real_dim, 1024, kernel_size=(2, 2), stride=(1, 1), bias=False),
-            nn.BatchNorm2d(1024),
-            nn.ReLU(True),
+            nn.ConvTranspose2d(1, 28, kernel_size=(2, 2), stride=(1, 1), bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            # nn.BatchNorm2d(28),
+            # nn.ReLU(True),
 
-            nn.ConvTranspose2d(1024, 512, kernel_size=(2, 2), stride=(1, 1), bias=False),
-            nn.BatchNorm1d(512),
-            nn.ReLU(True),
+            nn.ConvTranspose2d(28, 128, kernel_size=(2, 2), stride=(1, 1), bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            # nn.BatchNorm1d(128),
+            # nn.ReLU(True),
 
-            nn.ConvTranspose2d(512, 256, kernel_size=(2, 2), stride=(1, 1), bias=False),
-            nn.BatchNorm1d(256),
-            nn.ReLU(True),
+            nn.ConvTranspose2d(128, 784, kernel_size=(2, 2), stride=(1, 1), bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            # nn.BatchNorm1d(784),
+            # nn.ReLU(True),
 
-            nn.ConvTranspose2d(256, 1, kernel_size=(2, 2), stride=(1, 1), bias=False),
+            nn.ConvTranspose2d(784, 1, kernel_size=(2, 2), stride=(1, 1), bias=False),
             nn.Sigmoid(),
         )
 
     def forward(self, input):
-        return self.main(input)
+        output = self.main(input)
+        return output
+
 
 
 generator = Generator().to(device)
