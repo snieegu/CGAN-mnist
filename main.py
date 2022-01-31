@@ -25,6 +25,7 @@ train_dataset = datasets.MNIST('mnist/', train=True, transform=transformation, d
 data_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print("device: ", device)
 
 plt.close("all")
 for x, _ in data_loader:
