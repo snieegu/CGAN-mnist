@@ -92,18 +92,18 @@ class Discriminator(nn.Module):
     def __init__(self):
         super(Discriminator, self).__init__()
         self.main = nn.Sequential(
-            nn.Conv2d(1, 28, kernel_size=(3, 3), stride=(1, 1), padding=1),
+            nn.Conv2d(1, 56, kernel_size=(3, 3), stride=(1, 1), padding=1),
             nn.LeakyReLU(negative_slope=0.1, inplace=True),
 
-            nn.Conv2d(28, 56, kernel_size=(3, 3), stride=(1, 1), padding=1),
-            nn.BatchNorm2d(56),
+            nn.Conv2d(56, 224, kernel_size=(3, 3), stride=(1, 1), padding=1),
+            nn.BatchNorm2d(224),
             nn.LeakyReLU(negative_slope=0.1, inplace=True),
 
-            nn.Conv2d(56, 28, kernel_size=(3, 3), stride=(1, 1), padding=1),
-            nn.BatchNorm2d(28),
+            nn.Conv2d(224, 448, kernel_size=(3, 3), stride=(1, 1), padding=1),
+            nn.BatchNorm2d(448),
             nn.LeakyReLU(negative_slope=0.1, inplace=True),
 
-            nn.Conv2d(28, 1, kernel_size=(3, 3), stride=(1, 1), padding=1),
+            nn.Conv2d(448, 1, kernel_size=(3, 3), stride=(1, 1), padding=1),
             nn.Flatten(),
             nn.Linear(784, 1),
             nn.Sigmoid()
