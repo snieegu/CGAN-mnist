@@ -4,12 +4,18 @@ from keras.datasets import mnist
 from keras_preprocessing import image
 import numpy as np
 import os
+import tensorflow as tf
+
+physical_devices = tf.config.list_physical_devices()
+for dev in physical_devices:
+    print(dev)
 
 latent_dim = 28
+epochs = 200
 chanels = 1
 height = 28
 width = 28
-_lr = 0.0002
+learning_rate = 0.0002
 
 generator_input = keras.Input(shape=latent_dim)
 
@@ -53,7 +59,7 @@ x = layers.Dense(1, activation='sigmoid')(x)
 discriminator = keras.models.Model(discriminator_input, x)
 discriminator.summary()
 
-discriminator_optimizer = keras.optimizers.RMSprop(lr=_lr, clipvalue=1.0, decay=1e-8)
+discriminator_optimizer = keras.optimizers.RMSprop(learning_rate=learning_rate, clipvalue=1.0, decay=1e-8)
 
 discriminator.compile(optimizer=discriminator_optimizer, loss='binary_crossentropy')
 
@@ -63,7 +69,7 @@ gan_input = keras.Input(shape=(latent_dim,))
 gan_output = discriminator(generator(gan_input))
 gan = keras.models.Model(gan_input, gan_output)
 
-gan_optimizer = keras.optimizers.RMSprop(lr=_lr, clipvalue=1.0, decay=1e-8)
+gan_optimizer = keras.optimizers.RMSprop(learning_rate=learning_rate, clipvalue=1.0, decay=1e-8)
 gan.compile(optimizer=gan_optimizer, loss='binary_crossentropy')
 
 (training_data, y_train), (_, _) = mnist.load_data()
@@ -71,7 +77,6 @@ print(training_data.shape)
 
 training_data = training_data.reshape((training_data.shape[0],) + (height, width, chanels)).astype('float32') / 255
 
-epchos = 200
 batch_size = 128
 
 if not os.path.exists('generatedImg'):
@@ -79,7 +84,7 @@ if not os.path.exists('generatedImg'):
 save_dir = 'generatedImg'
 
 start = 0
-for epoch in range(epchos):
+for epoch in range(epochs):
     latent_vector = np.random.normal(size=(batch_size, latent_dim))
     generated_images = generator.predict(latent_vector)
 
@@ -103,12 +108,15 @@ for epoch in range(epchos):
     if start > len(training_data) - batch_size:
         start = 0
 
-    if epoch % 100 == 0:
+    print("Working epoch:", epoch)
+
+    if epoch % 50 == 0:
         gan.save_weights('gan.h5')
 
         print('Discriminator loss in epoch %s: %s' % (epoch, D_loss))
         print('oposite loss: %s %s' % (epoch, G_loss))
 
+    if epoch % 10 == 0:
         img = image.array_to_img(generated_images[0] * 255., scale=False)
         img.save(os.path.join(save_dir, 'generated_mnist' + str(epoch) + '.png'))
 
