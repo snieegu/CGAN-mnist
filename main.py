@@ -20,7 +20,8 @@ lr = 0.001
 start_time = time.time()
 
 transformation = transforms.Compose(
-    [transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,)), transforms.Resize(image_size)])
+    [transforms.Grayscale(num_output_channels=1), transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,)),
+     transforms.Resize(image_size)])
 train_dataset = datasets.MNIST('mnist/', train=True, transform=transformation, download=True)
 data_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
@@ -41,19 +42,19 @@ class Generator(nn.Module):
         super(Generator, self).__init__()
         self.latent_dim = latent_dim
         self.main = nn.Sequential(
-            nn.ConvTranspose2d(in_channels=latent_dim, out_channels=196, kernel_size=(3, 3), stride=(2, 2)),
-            nn.BatchNorm2d(196),
+            nn.ConvTranspose2d(in_channels=latent_dim, out_channels=256, kernel_size=(3, 3), stride=(2, 2)),
+            nn.BatchNorm2d(256),
             nn.ReLU(),
 
-            nn.ConvTranspose2d(196, 392, kernel_size=(4, 4), stride=(1, 1)),
-            nn.BatchNorm2d(392),
+            nn.ConvTranspose2d(256, 512, kernel_size=(4, 4), stride=(1, 1)),
+            nn.BatchNorm2d(512),
             nn.ReLU(),
 
-            nn.ConvTranspose2d(392, 196, kernel_size=(4, 4), stride=(2, 2)),
-            nn.BatchNorm2d(196),
+            nn.ConvTranspose2d(512, 256, kernel_size=(4, 4), stride=(2, 2)),
+            nn.BatchNorm2d(256),
             nn.ReLU(),
 
-            nn.ConvTranspose2d(196, 1, kernel_size=(2, 2), stride=(2, 2)),
+            nn.ConvTranspose2d(256, 1, kernel_size=(2, 2), stride=(2, 2)),
             nn.BatchNorm2d(1),
             nn.ReLU(),
 
@@ -160,8 +161,6 @@ def show_images(images):
         plt.subplot(sqrtn, sqrtn, index + 1)
         plt.imshow(image.reshape(28, 28), cmap='gray')
 
-    plt.show()
-
 
 generator.apply(weights_init)
 discriminator.apply(weights_init)
@@ -251,12 +250,13 @@ for epoch in range(epochs):
 
         iters += 1
 
-    plt.clf()
     images_numpy = (fake.data.cpu().numpy() + 1.0) / 2.0
     show_images(images_numpy[:16])
-    # if epoch % 50 == 0:
-    #     torch.save(generator, 'Generator_epoch_{}.pth'.format(epoch))
-    #     print('Model saved.')
+    plt.show()
+    if epoch % 50 == 0:
+        torch.save(generator, 'Generator_epoch_{}.pth'.format(epoch))
+        print('Model saved.')
+
 
 print('Cost Time: {}s'.format(time.time() - start_time))
 plt.figure(figsize=(10, 5))

@@ -10,6 +10,7 @@ physical_devices = tf.config.list_physical_devices()
 for dev in physical_devices:
     print(dev)
 
+batch_size = 128
 latent_dim = 28
 epochs = 200
 chanels = 1
@@ -19,7 +20,7 @@ learning_rate = 0.0002
 
 generator_input = keras.Input(shape=latent_dim)
 
-x = layers.Dense(128 * 28 * 28)(generator_input)
+x = layers.Dense(batch_size * 28 * 28)(generator_input)
 x = layers.LeakyReLU()(x)
 x = layers.Reshape((28, 28, 128))(x)
 
@@ -36,6 +37,7 @@ x = layers.LeakyReLU()(x)
 
 x = layers.Conv2D(chanels, 7, activation='tanh', padding='same')(x)
 generator = keras.models.Model(generator_input, x)
+print("Generator summary:")
 generator.summary()
 
 discriminator_input = layers.Input(shape=(height, width, chanels))
@@ -57,6 +59,7 @@ x - layers.Dropout(0.4)(x)
 x = layers.Dense(1, activation='sigmoid')(x)
 
 discriminator = keras.models.Model(discriminator_input, x)
+print("Discriminator summary:")
 discriminator.summary()
 
 discriminator_optimizer = keras.optimizers.RMSprop(learning_rate=learning_rate, clipvalue=1.0, decay=1e-8)
@@ -114,11 +117,12 @@ for epoch in range(epochs):
         gan.save_weights('gan.h5')
 
         print('Discriminator loss in epoch %s: %s' % (epoch, D_loss))
-        print('oposite loss: %s %s' % (epoch, G_loss))
+        print('Generator loss: %s %s' % (epoch, G_loss))
 
     if epoch % 10 == 0:
         img = image.array_to_img(generated_images[0] * 255., scale=False)
+        #print("should be saved in dir:", save_dir)
         img.save(os.path.join(save_dir, 'generated_mnist' + str(epoch) + '.png'))
-
+        #print("should be saved in dir:", save_dir)
         img = image.array_to_img(real_images[0] * 255., scale=False)
         img.save(os.path.join(save_dir, 'real_mnist' + str(epoch) + '.png'))
