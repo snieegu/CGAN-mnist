@@ -3,7 +3,9 @@ import torch.nn as nn
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 from torch.utils.data import DataLoader
+from torchvision.utils import make_grid
 from torchsummary import summary
+from tqdm import tqdm
 import torch.optim as optim
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -15,13 +17,13 @@ epochs = 100
 batch_size = 100
 latent_dim = 100
 image_size = 28
-lr = 0.001
+lr = 0.0001
 
 start_time = time.time()
 
 transformation = transforms.Compose(
-    [transforms.Grayscale(num_output_channels=1), transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,)),
-     transforms.Resize(image_size)])
+    [transforms.Grayscale(num_output_channels=1), transforms.Resize(image_size), transforms.ToTensor(),
+     transforms.Normalize((0.5,), (0.5,))])
 train_dataset = datasets.MNIST('mnist/', train=True, transform=transformation, download=True)
 data_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
@@ -57,6 +59,7 @@ class Generator(nn.Module):
             nn.ConvTranspose2d(256, 1, kernel_size=(2, 2), stride=(2, 2)),
             nn.BatchNorm2d(1),
             nn.ReLU(),
+
             nn.Tanh()
 
         )
@@ -70,27 +73,25 @@ class Discriminator(nn.Module):
     def __init__(self):
         super(Discriminator, self).__init__()
         self.main = nn.Sequential(
-            nn.Conv2d(1, 56, kernel_size=(3, 3), stride=(1, 1), padding=1),
+            nn.Conv2d(1, 56, kernel_size=(4, 4), stride=(2, 2), padding=1, bias=False),
             nn.LeakyReLU(negative_slope=0.1, inplace=True),
 
-            nn.Conv2d(56, 224, kernel_size=(3, 3), stride=(1, 1), padding=1),
+            nn.Conv2d(56, 224, kernel_size=(4, 4), stride=(2, 2), padding=1, bias=False),
             nn.BatchNorm2d(224),
             nn.LeakyReLU(negative_slope=0.1, inplace=True),
 
-            nn.Conv2d(224, 448, kernel_size=(3, 3), stride=(1, 1), padding=1),
+            nn.Conv2d(224, 448, kernel_size=(3, 3), stride=(2, 2), padding=1, bias=False),
             nn.BatchNorm2d(448),
             nn.LeakyReLU(negative_slope=0.1, inplace=True),
 
-            nn.Conv2d(448, 1, kernel_size=(3, 3), stride=(1, 1), padding=1),
-            nn.Flatten(),
-            nn.Linear(784, 1),
+            nn.Conv2d(448, 1, kernel_size=(4, 4), stride=(1, 1), padding=0, bias=False),
             nn.Sigmoid()
 
         )
 
     def forward(self, input):
         output = self.main(input)
-        return output
+        return output.view(-1, 1).squeeze(1)
 
 
 generator = Generator().to(device)
@@ -103,8 +104,8 @@ print("Generator summary:")
 summary(generator, (latent_dim, 1, 1))
 
 lossFunction = nn.BCELoss()
-generatorOptim = optim.Adam(generator.parameters(), lr=lr)
-discriminatorOptim = optim.Adam(discriminator.parameters(), lr=lr)
+generatorOptim = optim.Adam(generator.parameters(), lr=lr, betas=(0.5, 0.999))
+discriminatorOptim = optim.Adam(discriminator.parameters(), lr=lr, betas=(0.5, 0.999))
 
 x = torch.randn(1, 28, 28)
 print("Random tensor: ", x.shape)
@@ -114,29 +115,25 @@ plt.show()
 print("Random tensor permute: ", x_permute.shape)
 
 
-# generator1 = Generator()
-# example_noise = torch.randn(1, latent_dim, 1, 1)
-# fake = generator1(example_noise).squeeze().detach()
-# plt.title("Example Image from Generator")
-# plt.imshow(fake)
-# plt.show()
-
-
 def weights_init(m):
     classname = m.__class__.__name__
     if classname.find('Conv') != -1:
-        nn.init.normal_(m.weight.data, 0.0, 0.02)
+        nn.init.normal_(m.weight.data, mean=0.0, std=0.02)
     elif classname.find('BatchNorm') != -1:
-        nn.init.normal_(m.weight.data, 1.0, 0.02)
+        nn.init.normal_(m.weight.data, mean=1.0, std=0.02)
         nn.init.constant_(m.bias.data, 0)
 
 
-def show_images(images):
-    sqrtn = int(np.ceil(np.sqrt(images.shape[0])))
+def show_images(image_tensor, size=(1, 28, 28)):
+    flatten_image = image_tensor.detach().cpu().view(-1, *size)
+    image_grid = make_grid(flatten_image[:25], nrow=5)
+    plt.imshow(image_grid.permute(1, 2, 0).squeeze(), cmap='gray')
+    plt.show()
 
-    for index, image in enumerate(images):
-        plt.subplot(sqrtn, sqrtn, index + 1)
-        plt.imshow(image.reshape(28, 28), cmap='gray')
+
+def gen_noise(b_size):
+    _generatedNoise = torch.randn(b_size, latent_dim, 1, 1, device=device)
+    return _generatedNoise
 
 
 generator.apply(weights_init)
@@ -153,83 +150,89 @@ G_losses = []
 D_losses = []
 iters = 0
 
+display_step = 500
+mean_generator_loss = 0
+mean_discriminator_loss = 0
+
 print("Starting Training Loop...")
 # For each epoch
 for epoch in range(epochs):
-    # For each batch in the dataloader
-    for i, data in enumerate(data_loader, 0):
+    for real, _ in tqdm(data_loader):
 
-        ############################
-        # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
-        ###########################
-        ## Train with all-real batch
-        discriminator.zero_grad()
-        # Format batch
-        real_cpu = data[0].to(device)
-        b_size = real_cpu.size(0)
-        label = torch.full((b_size,), real_label, dtype=torch.float, device=device)
-        # Forward pass real batch through D
-        output = discriminator(real_cpu).view(-1)
-        # Calculate loss on all-real batch
-        errD_real = lossFunction(output, label)
-        # Calculate gradients for D in backward pass
-        errD_real.backward()
-        D_x = output.mean().item()
-
-        # Train with all-fake batch
-        # Generate batch of latent vectors
-        noise = torch.randn(b_size, latent_dim, 1, 1, device=device)
-        # Generate fake image batch with G
-        fake = generator(noise)
-        label.fill_(fake_label)
-        # Classify all fake batch with D
-        output = discriminator(fake.detach()).view(-1)
-        # Calculate D's loss on the all-fake batch
-        errD_fake = lossFunction(output, label)
-        # Calculate the gradients for this batch, accumulated (summed) with previous gradients
-        errD_fake.backward()
-        D_G_z1 = output.mean().item()
-        # Compute error of D as sum over the fake and the real batches
-        errD = errD_real + errD_fake
-        # Update D
+        cur_batch_size = len(real)
+        real = real.to(device)
+        ## Update discriminator ##
+        discriminatorOptim.zero_grad()
+        disc_real_pred = discriminator(real).reshape(-1)
+        real_label = (torch.ones(cur_batch_size) * 0.9).to(device)
+        # Get the discriminator's prediction on the real image and
+        # calculate the discriminator's loss on real images
+        disc_real_loss = lossFunction(disc_real_pred, real_label)
+        # generate the random noise
+        fake_noise = gen_noise(cur_batch_size)
+        # generate the fake images by passing the random noise to the generator
+        fake = generator(fake_noise)
+        # Get the discriminator's prediction on the fake images generated by generator
+        disc_fake_pred = discriminator(fake.detach()).reshape(-1)
+        fake_label = (torch.ones(cur_batch_size) * 0.1).to(device)
+        # calculate the discriminator's loss on fake images
+        disc_fake_loss = lossFunction(disc_fake_pred, fake_label)
+        # Calculate the discriminator's loss by
+        # accumulating the real and fake loss
+        disc_loss = (disc_fake_loss + disc_real_loss)
+        # Keep track of the average discriminator loss
+        mean_discriminator_loss += disc_loss.item() / display_step
+        # Update gradients
+        disc_loss.backward()
+        # Update optimizer
         discriminatorOptim.step()
+        ## Update generator ##
+        generatorOptim.zero_grad()
 
-        ############################
-        # (2) Update G network: maximize log(D(G(z)))
-        ###########################
-        generator.zero_grad()
-        label.fill_(real_label)  # fake labels are real for generator cost
-        # Since we just updated D, perform another forward pass of all-fake batch through D
-        output = discriminator(fake).view(-1)
-        # Calculate G's loss based on this output
-        errG = lossFunction(output, label)
-        # Calculate gradients for G
-        errG.backward()
-        D_G_z2 = output.mean().item()
-        # Update G
+        # Get the discriminator's prediction on the fake images
+
+        disc_fake_pred = discriminator(fake)
+        real_label = (torch.ones(cur_batch_size)).to(device)
+        #  Calculate the generator's loss.
+        # the generator wants the discriminator to think that the
+        # fake images generated by generator are real
+        gen_loss = lossFunction(disc_fake_pred, real_label)
+        # Backprop through the generator
+        # update the gradients and optimizer.
+        gen_loss.backward()
         generatorOptim.step()
-
-        # Output training stats
-        if i % 50 == 0:
-            print('[%d/%d][%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f\tD(x): %.4f\tD(G(z)): %.4f / %.4f'
-                  % (epoch, epochs, i, len(data_loader),
-                     errD.item(), errG.item(), D_x, D_G_z1, D_G_z2))
-
-        # Save Losses for plotting later
-        G_losses.append(errG.item())
-        D_losses.append(errD.item())
-
-        # Check how the generator is doing by saving G's output on fixed_noise
-        if (iters % 500 == 0) or ((epoch == epochs - 1) and (i == len(data_loader) - 1)):
-            with torch.no_grad():
-                fake = generator(fixed_noise).detach().cpu()
-            img_list.append(utils.make_grid(fake, padding=2, normalize=True))
-
+        # Keep track of the average generator loss
+        mean_generator_loss += gen_loss.item() / display_step
+        ## Visualization code ##
+        if iters % display_step == 0 and iters > 0:
+            print(
+                f"Epoch:{epoch} Step {iters}: Generator loss: {mean_generator_loss}, discriminator loss: {mean_discriminator_loss}")
+            show_images(fake)
+            show_images(real)
+            mean_generator_loss = 0
+            mean_discriminator_loss = 0
         iters += 1
 
-    images_numpy = (fake.data.cpu().numpy() + 1.0) / 2.0
-    show_images(images_numpy[:16])
-    plt.show()
+        # OLD CODE !!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+        # # Output training stats
+        # if i % 50 == 0:
+        #     print('[%d/%d][%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f\tD(x): %.4f\tD(G(z)): %.4f / %.4f'
+        #           % (epoch, epochs, i, len(data_loader),
+        #              errD.item(), errG.item(), D_x, D_G_z1, D_G_z2))
+        #
+        # # Save Losses for plotting later
+        # G_losses.append(errG.item())
+        # D_losses.append(errD.item())
+        #
+        # # Check how the generator is doing by saving G's output on fixed_noise
+        # if (iters % 500 == 0) or ((epoch == epochs - 1) and (i == len(data_loader) - 1)):
+        #     with torch.no_grad():
+        #         fake = generator(fixed_noise).detach().cpu()
+        #     img_list.append(utils.make_grid(fake, padding=2, normalize=True))
+        #
+        # iters += 1
+
     if epoch % 50 == 0:
         torch.save(generator, 'Generator_epoch_{}.pth'.format(epoch))
         print('Model saved.')
