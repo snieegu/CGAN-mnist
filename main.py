@@ -42,28 +42,21 @@ class Generator(nn.Module):
         super(Generator, self).__init__()
         self.latent_dim = latent_dim
         self.main = nn.Sequential(
-            # nn.ConvTranspose2d(in_channels=latent_dim, out_channels=256, kernel_size=(3, 3), stride=(2, 2)),
-            # nn.BatchNorm2d(256),
-            # nn.ReLU(),
-            #
-            # nn.ConvTranspose2d(256, 512, kernel_size=(4, 4), stride=(1, 1)),
-            # nn.BatchNorm2d(512),
-            # nn.ReLU(),
-            #
-            # nn.ConvTranspose2d(512, 256, kernel_size=(4, 4), stride=(2, 2)),
-            # nn.BatchNorm2d(256),
-            # nn.ReLU(),
-            #
-            # nn.ConvTranspose2d(256, 1, kernel_size=(2, 2), stride=(2, 2)),
-            # nn.BatchNorm2d(1),
-            # nn.ReLU(),
-            nn.Linear(latent_dim, 256),
-            nn.LeakyReLU(0.01),
-            nn.Linear(256, 512),
-            nn.LeakyReLU(0.01),
-            nn.Linear(512, 1024),
-            nn.LeakyReLU(0.01),
-            nn.Linear(1024, 784),
+            nn.ConvTranspose2d(in_channels=latent_dim, out_channels=256, kernel_size=(3, 3), stride=(2, 2)),
+            nn.BatchNorm2d(256),
+            nn.ReLU(),
+
+            nn.ConvTranspose2d(256, 512, kernel_size=(4, 4), stride=(1, 1)),
+            nn.BatchNorm2d(512),
+            nn.ReLU(),
+
+            nn.ConvTranspose2d(512, 256, kernel_size=(4, 4), stride=(2, 2)),
+            nn.BatchNorm2d(256),
+            nn.ReLU(),
+
+            nn.ConvTranspose2d(256, 1, kernel_size=(2, 2), stride=(2, 2)),
+            nn.BatchNorm2d(1),
+            nn.ReLU(),
             nn.Tanh()
 
         )
@@ -77,27 +70,20 @@ class Discriminator(nn.Module):
     def __init__(self):
         super(Discriminator, self).__init__()
         self.main = nn.Sequential(
-            # nn.Conv2d(1, 56, kernel_size=(3, 3), stride=(1, 1), padding=1),
-            # nn.LeakyReLU(negative_slope=0.1, inplace=True),
-            #
-            # nn.Conv2d(56, 224, kernel_size=(3, 3), stride=(1, 1), padding=1),
-            # nn.BatchNorm2d(224),
-            # nn.LeakyReLU(negative_slope=0.1, inplace=True),
-            #
-            # nn.Conv2d(224, 448, kernel_size=(3, 3), stride=(1, 1), padding=1),
-            # nn.BatchNorm2d(448),
-            # nn.LeakyReLU(negative_slope=0.1, inplace=True),
-            #
-            # nn.Conv2d(448, 1, kernel_size=(3, 3), stride=(1, 1), padding=1),
-            # nn.Flatten(),
-            # nn.Linear(784, 1),
-            nn.Linear(1, 512),
-            nn.LeakyReLU(0.01),
-            nn.Linear(512, 1024),
-            nn.LeakyReLU(0.01),
-            nn.Linear(1024, 784),
-            nn.LeakyReLU(0.01),
-            nn.Linear(1024, 1),
+            nn.Conv2d(1, 56, kernel_size=(3, 3), stride=(1, 1), padding=1),
+            nn.LeakyReLU(negative_slope=0.1, inplace=True),
+
+            nn.Conv2d(56, 224, kernel_size=(3, 3), stride=(1, 1), padding=1),
+            nn.BatchNorm2d(224),
+            nn.LeakyReLU(negative_slope=0.1, inplace=True),
+
+            nn.Conv2d(224, 448, kernel_size=(3, 3), stride=(1, 1), padding=1),
+            nn.BatchNorm2d(448),
+            nn.LeakyReLU(negative_slope=0.1, inplace=True),
+
+            nn.Conv2d(448, 1, kernel_size=(3, 3), stride=(1, 1), padding=1),
+            nn.Flatten(),
+            nn.Linear(784, 1),
             nn.Sigmoid()
 
         )
