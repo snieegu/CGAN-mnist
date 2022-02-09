@@ -26,7 +26,7 @@ batch_size = 100
 latent_dim = 16
 lr = 0.0001
 
-transformation = transforms.Compose([transforms.ToTensor()])
+transformation = transforms.Compose([transforms.ToTensor(), transforms.Normalize(mean=0.5, std=0.5)])
 train_dataset = IsingDataset(ising_data, transformation)
 data_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
@@ -43,39 +43,20 @@ class Generator(nn.Module):
         super(Generator, self).__init__()
         self.latent_dim = latent_dim
         self.main = nn.Sequential(
-            # nn.ConvTranspose1d(in_channels=latent_dim, out_channels=256, kernel_size=(1, 1)),
-            # nn.BatchNorm1d(256),
-            # nn.ReLU(),
-            #
-            # nn.ConvTranspose1d(256, 512, kernel_size=(1, 1)),
-            # nn.BatchNorm1d(512),
-            # nn.ReLU(),
-            #
-            # nn.ConvTranspose1d(512, 256, kernel_size=(1, 1)),
-            # nn.BatchNorm1d(256),
-            # nn.ReLU(),
-            #
-            # nn.ConvTranspose1d(256, 1, kernel_size=(1, 1)),
-            # nn.BatchNorm1d(1),
-            # nn.ReLU(),
-            nn.ConvTranspose1d(1, 64, kernel_size=3, padding=1),
-            # nn.Linear(16, 32),
-            nn.ReLU(),
 
-            nn.ConvTranspose1d(64, 128, kernel_size=3, padding=1),
-            # nn.Linear(32, 64),
-            nn.ReLU(),
+            nn.ConvTranspose1d(1, 128, kernel_size=3, padding=1),
+            # nn.ReLU(),
 
-            nn.ConvTranspose1d(128, 64, kernel_size=3, padding=1),
-            # nn.Linear(64, 32),
-            nn.ReLU(),
+            nn.ConvTranspose1d(128, 256, kernel_size=3, padding=1),
+            # nn.ReLU(),
+
+            nn.ConvTranspose1d(256, 64, kernel_size=3, padding=1),
+            # nn.ReLU(),
 
             nn.ConvTranspose1d(64, 1, kernel_size=3, padding=1),
-            # nn.Linear(32, 16),
-            nn.ReLU(),
+            # nn.ReLU(),
 
-
-            nn.Tanh()
+            nn.Tanh(),
 
         )
 
@@ -88,33 +69,17 @@ class Discriminator(nn.Module):
     def __init__(self):
         super(Discriminator, self).__init__()
         self.main = nn.Sequential(
-            # nn.Conv1d(1, 56, kernel_size=(1, 1)),
-            # nn.LeakyReLU(negative_slope=0.1, inplace=True),
-            #
-            # nn.Conv1d(56, 224, kernel_size=(1, 1)),
-            # nn.BatchNorm1d(224),
-            # nn.LeakyReLU(negative_slope=0.1, inplace=True),
-            #
-            # nn.Conv1d(224, 448, kernel_size=(1, 1)),
-            # nn.BatchNorm1d(448),
-            # nn.LeakyReLU(negative_slope=0.1, inplace=True),
-            #
-            # nn.Conv1d(448, 1, kernel_size=(1, 1)),
 
             nn.Conv1d(1, 64, kernel_size=3, padding=1),
-            # nn.Linear(16, 32),
             nn.LeakyReLU(negative_slope=0.1, inplace=True),
 
             nn.Conv1d(64, 128, kernel_size=3, stride=2, padding=0),
-            # nn.Linear(32, 64),
             nn.LeakyReLU(negative_slope=0.1, inplace=True),
 
             nn.Conv1d(128, 64, kernel_size=3, stride=2, padding=0),
-            # nn.Linear(64, 32),
             nn.LeakyReLU(negative_slope=0.1, inplace=True),
 
             nn.Conv1d(64, 1, kernel_size=3, padding=0),
-            # nn.Linear(32, 1),
 
             nn.Sigmoid()
 
@@ -171,6 +136,7 @@ iters = 0
 
 start_time = time.time()
 display_step = 300
+loss_save_step = 50
 mean_generator_loss = 0
 mean_discriminator_loss = 0
 
@@ -237,21 +203,34 @@ for epoch in range(epochs):
             print(
                 f"Epoch:{epoch} Step {iters}: Generator loss: {mean_generator_loss}, discriminator loss: {mean_discriminator_loss}")
             show_data(fake)
+            # show_data(torch.sign(fake))
             show_data(real)
             mean_generator_loss = 0
             mean_discriminator_loss = 0
+            print('Cost Time: {}s'.format(time.time() - start_time))
+            plt.figure(figsize=(7, 5))
+            plt.title("Generator and Discriminator Loss During Training")
+            plt.plot(G_losses, label="Generator Loos")
+            plt.plot(D_losses, label="Discriminator Loss")
+            plt.xlabel("Iterations")
+            plt.ylabel("Loss")
+            plt.legend()
+            plt.show()
+        if iters % loss_save_step == 0 and iters > 0:
+            G_losses.append(gen_loss.item())
+            D_losses.append(disc_loss.item())
         iters += 1
 
     # if epoch % 50 == 0:
     #     torch.save(generator, 'Generator_epoch_{}.pth'.format(epoch))
     #     print('Model saved.')
 
-print('Cost Time: {}s'.format(time.time() - start_time))
-plt.figure(figsize=(10, 5))
-plt.title("Generator and Discriminator Loss During Training")
-plt.plot(G_losses, label="G")
-plt.plot(D_losses, label="D")
-plt.xlabel("iterations")
-plt.ylabel("Loss")
-plt.legend()
-plt.show()
+# print('Cost Time: {}s'.format(time.time() - start_time))
+# plt.figure(figsize=(7, 5))
+# plt.title("Generator and Discriminator Loss During Training")
+# plt.plot(G_losses, label="Generator Loos")
+# plt.plot(D_losses, label="Discriminator Loss")
+# plt.xlabel("Iterations")
+# plt.ylabel("Loss")
+# plt.legend()
+# plt.show()
